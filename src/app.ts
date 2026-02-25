@@ -43,8 +43,18 @@ app.use(compression());
 // ─── Request ID ──────────────────────────────────────────
 app.use(requestId);
 
+// ─── Root Route ──────────────────────────────────────────
+app.get('/', (_req, res) => {
+    console.log('--- ROOT ROUTE HIT ---');
+    res.json({
+        success: true,
+        message: 'Samvriddhi Attendance API Running',
+    });
+});
+
 // ─── Health Check ────────────────────────────────────────
 app.get('/health', (_req, res) => {
+    console.log('--- HEALTH ROUTE HIT ---');
     res.status(200).json({
         success: true,
         message: 'Server is healthy',

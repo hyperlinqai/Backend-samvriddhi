@@ -34,7 +34,10 @@ if (config.NODE_ENV !== 'production') {
 
 export async function connectDatabase(): Promise<void> {
     try {
-        await prisma.$connect();
+        await Promise.race([
+            prisma.$connect(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Prisma connect timeout after 15s')), 15000))
+        ]);
         logger.info('✅ Database connected successfully');
     } catch (error) {
         logger.error('❌ Database connection failed:', error);

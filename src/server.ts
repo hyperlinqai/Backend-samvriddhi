@@ -5,11 +5,13 @@ import { logger } from './infrastructure/logger';
 
 const startServer = async (): Promise<void> => {
     try {
-        // Connect to database
+        // Connect to database completely before starting express
+        logger.info('⏳ Connecting to database...');
         await connectDatabase();
+        logger.info('✅ Database connection established.');
 
-        // Start listening
-        const server = app.listen(config.PORT, () => {
+        // Start listening only when DB is connected
+        const server = app.listen(config.PORT, '0.0.0.0', () => {
             logger.info(`🚀 Server running on port ${config.PORT}`);
             logger.info(`📌 Environment: ${config.NODE_ENV}`);
             logger.info(`📌 API version: ${config.API_VERSION}`);
