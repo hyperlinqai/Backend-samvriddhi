@@ -1,0 +1,293 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  SM_ADMIN
+  RM
+  ACCOUNTS
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  AUTO_CLOSED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL_SENT
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESUBMITTED
+}
+
+enum DiscrepancyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DiscrepancyType {
+  ATTENDANCE
+  EXPENSE
+  VISIT
+  OTHER
+}
+
+// ─── Models ───────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  phone         String   @unique
+  passwordHash  String
+  fullName      String
+  role          Role     @default(RM)
+  isActive      Boolean  @default(true)
+  avatarUrl     String?
+  managerId     String?
+  manager       User?    @relation("UserManager", fields: [managerId], references: [id])
+  subordinates  User[]   @relation("UserManager")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  attendances       Attendance[]
+  visits            Visit[]
+  assignedLeads     Lead[]            @relation("LeadAssignee")
+  createdLeads      Lead[]            @relation("LeadCreator")
+  expenses          Expense[]         @relation("ExpenseOwner")
+  approvedExpenses  Expense[]         @relation("ExpenseApprover")
+  raisedDiscrepancies   Discrepancy[] @relation("DiscrepancyRaiser")
+  resolvedDiscrepancies Discrepancy[] @relation("DiscrepancyResolver")
+  auditLogs         AuditLog[]
+  assignedRoutes    RouteAssignment[]
+
+  @@index([role])
+  @@index([managerId])
+  @@map("users")
+}
+
+model Attendance {
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime         @db.Date
+  checkInTime     DateTime
+  checkOutTime    DateTime?
+  checkInLat      Float
+  checkInLng      Float
+  checkOutLat     Float?
+  checkOutLng     Float?
+  checkInAddress  String?
+  checkOutAddress String?
+  status          AttendanceStatus @default(CHECKED_IN)
+  workingHours    Float?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  visits Visit[]
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@index([status])
+  @@map("attendances")
+}
+
+model Visit {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendanceId String
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  cspId        String?
+  csp          CSP?     @relation(fields: [cspId], references: [id])
+  lat          Float
+  lng          Float
+  address      String?
+  purpose      String
+  notes        String?
+  selfieUrl    String?
+  geoTaggedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([attendanceId])
+  @@index([geoTaggedAt])
+  @@map("visits")
+}
+
+model Lead {
+  id           String     @id @default(uuid())
+  assignedToId String
+  assignedTo   User       @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User       @relation("LeadCreator", fields: [createdById], references: [id])
+  name         String
+  phone        String
+  email        String?
+  address      String?
+  status       LeadStatus @default(NEW)
+  notes        String?
+  documentUrls Json       @default("[]")
+  lat          Float?
+  lng          Float?
+  source       String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([assignedToId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model Expense {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation("ExpenseOwner", fields: [userId], references: [id])
+  date         DateTime      @db.Date
+  category     String
+  amount       Float
+  description  String?
+  startLat     Float?
+  startLng     Float?
+  endLat       Float?
+  endLng       Float?
+  autoKm       Float?
+  manualKm     Float?
+  receiptUrl   String?
+  status       ExpenseStatus @default(PENDING)
+  approvedById String?
+  approvedBy   User?         @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  approvalNote String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([date])
+  @@map("expenses")
+}
+
+model Route {
+  id           String            @id @default(uuid())
+  name         String
+  description  String?
+  areas        Json              @default("[]")
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  // Relations
+  csps         CSP[]
+  assignments  RouteAssignment[]
+
+  @@map("routes")
+}
+
+model CSP {
+  id            String   @id @default(uuid())
+  name          String
+  code          String   @unique
+  routeId       String
+  route         Route    @relation(fields: [routeId], references: [id])
+  lat           Float
+  lng           Float
+  address       String?
+  contactPerson String?
+  phone         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  visits Visit[]
+
+  @@index([routeId])
+  @@index([code])
+  @@map("csps")
+}
+
+model RouteAssignment {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  routeId   String
+  route     Route    @relation(fields: [routeId], references: [id])
+  startDate DateTime @db.Date
+  endDate   DateTime? @db.Date
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, routeId, startDate])
+  @@index([userId])
+  @@index([routeId])
+  @@map("route_assignments")
+}
+
+model Discrepancy {
+  id                String             @id @default(uuid())
+  raisedById        String
+  raisedBy          User               @relation("DiscrepancyRaiser", fields: [raisedById], references: [id])
+  type              DiscrepancyType
+  relatedEntityId   String
+  relatedEntityType String
+  description       String
+  status            DiscrepancyStatus  @default(PENDING)
+  resolvedById      String?
+  resolvedBy        User?              @relation("DiscrepancyResolver", fields: [resolvedById], references: [id])
+  resolutionNotes   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([raisedById])
+  @@index([status])
+  @@index([relatedEntityType, relatedEntityId])
+  @@map("discrepancies")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  prevData   Json?
+  newData    Json?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
