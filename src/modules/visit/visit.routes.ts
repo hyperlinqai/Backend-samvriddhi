@@ -6,6 +6,7 @@ import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/resp
 import { prisma } from '../../infrastructure/database/prisma';
 import { NotFoundError } from '../../shared/errors/AppError';
 import { z } from 'zod';
+import { getVisibleUserIds } from '../../shared/utils/downline.util';
 
 const visitRouter = Router();
 visitRouter.use(authenticate);
@@ -62,8 +63,9 @@ visitRouter.get(
         const limitNum = Number(limit) || 20;
 
         const where: Record<string, unknown> = {};
-        if (!['SUPER_ADMIN', 'SM_ADMIN'].includes(req.user!.role)) {
-            where.userId = req.user!.userId;
+        const visibleIds = await getVisibleUserIds(req.user!.userId, req.user!.roleName);
+        if (visibleIds) {
+            where.userId = { in: visibleIds };
         }
         if (attendanceId) where.attendanceId = attendanceId;
         if (startDate || endDate) {

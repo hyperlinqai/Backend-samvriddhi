@@ -8,11 +8,14 @@ import { expenseRouter } from '../modules/expense/expense.routes';
 import { routeManagementRouter } from '../modules/route-management/route-management.routes';
 import { discrepancyRouter } from '../modules/discrepancy/discrepancy.routes';
 import { auditRouter } from '../modules/audit/audit.routes';
+import { entityRouter } from '../modules/entity/entity.routes';
+import roleRouter from '../modules/role/role.routes';
 
 const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/users', userRouter);
+apiRouter.use('/entities', entityRouter);
 apiRouter.use('/attendance', attendanceRouter);
 apiRouter.use('/visits', visitRouter);
 apiRouter.use('/leads', leadRouter);
@@ -20,5 +23,6 @@ apiRouter.use('/expenses', expenseRouter);
 apiRouter.use('/routes', routeManagementRouter);
 apiRouter.use('/discrepancies', discrepancyRouter);
 apiRouter.use('/audit-logs', auditRouter);
+apiRouter.use('/roles', roleRouter);
 
 export { apiRouter };

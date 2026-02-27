@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { authenticate } from '../../infrastructure/middleware/auth.middleware';
-import { authorize } from '../../infrastructure/middleware/rbac.middleware';
+import { hasPermission } from '../../infrastructure/middleware/rbac.middleware';
 import { validate } from '../../infrastructure/middleware/validate.middleware';
 import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/response';
 import { prisma } from '../../infrastructure/database/prisma';
 import { NotFoundError, ForbiddenError } from '../../shared/errors/AppError';
 import { z } from 'zod';
+import { getVisibleUserIds } from '../../shared/utils/downline.util';
 
 const discrepancyRouter = Router();
 discrepancyRouter.use(authenticate);
@@ -62,8 +63,9 @@ discrepancyRouter.get(
         const limitNum = Number(limit) || 20;
 
         const where: Record<string, unknown> = {};
-        if (!['SUPER_ADMIN', 'SM_ADMIN'].includes(req.user!.role)) {
-            where.raisedById = req.user!.userId;
+        const visibleIds = await getVisibleUserIds(req.user!.userId, req.user!.roleName);
+        if (visibleIds) {
+            where.raisedById = { in: visibleIds };
         }
         if (status) where.status = status;
         if (type) where.type = type;
@@ -93,7 +95,7 @@ discrepancyRouter.get(
 // Resolve discrepancy (admin only)
 discrepancyRouter.patch(
     '/:id/resolve',
-    authorize('SUPER_ADMIN', 'SM_ADMIN'),
+    hasPermission('discrepancies.resolve'),
     validate({ body: resolveDiscrepancySchema }),
     asyncHandler(async (req, res) => {
         const discrepancy = await prisma.discrepancy.findUnique({ where: { id: req.params.id as string } });

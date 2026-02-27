@@ -42,37 +42,72 @@ export class AuthService {
                 phone: data.phone,
                 passwordHash,
                 fullName: data.fullName,
-                role: data.role ?? 'RM',
-                managerId: data.managerId,
+                entityId: data.entityId,
+                roleId: data.roleId,
+                reportingTo: data.reportingTo,
             },
             select: {
                 id: true,
                 email: true,
                 fullName: true,
-                role: true,
                 phone: true,
                 isActive: true,
                 avatarUrl: true,
+                roleRecord: {
+                    select: { id: true, name: true, level: true },
+                },
+                entity: {
+                    select: { id: true, name: true, code: true },
+                },
             },
         });
+
+        const roleName = user.roleRecord?.name ?? 'USER';
+        const roleLevel = user.roleRecord?.level ?? 0;
+
+        // Fetch permissions for the role
+        const permissions = user.roleRecord
+            ? (await prisma.rolePermission.findMany({
+                where: { roleId: user.roleRecord.id },
+                include: { permission: { select: { name: true } } },
+            })).map((rp) => rp.permission.name)
+            : [];
 
         // Generate tokens
         const tokens = this.generateTokens({
             userId: user.id,
             email: user.email,
-            role: user.role,
+            roleName,
+            roleLevel,
+            permissions,
         });
 
-        return { user, tokens };
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                fullName: user.fullName,
+                role: roleName,
+                phone: user.phone,
+                isActive: user.isActive,
+                avatarUrl: user.avatarUrl,
+            },
+            tokens,
+        };
     }
 
     /**
      * Authenticate a user
      */
     async login(data: LoginInput): Promise<LoginResponse> {
-        // Find user
+        // Find user with role
         const user = await prisma.user.findUnique({
             where: { email: data.email },
+            include: {
+                roleRecord: {
+                    select: { id: true, name: true, level: true },
+                },
+            },
         });
 
         if (!user) {
@@ -90,11 +125,24 @@ export class AuthService {
             throw new UnauthorizedError('Invalid email or password');
         }
 
+        const roleName = user.roleRecord?.name ?? 'USER';
+        const roleLevel = user.roleRecord?.level ?? 0;
+
+        // Fetch permissions for the role
+        const permissions = user.roleRecord
+            ? (await prisma.rolePermission.findMany({
+                where: { roleId: user.roleRecord.id },
+                include: { permission: { select: { name: true } } },
+            })).map((rp) => rp.permission.name)
+            : [];
+
         // Generate tokens
         const tokens = this.generateTokens({
             userId: user.id,
             email: user.email,
-            role: user.role,
+            roleName,
+            roleLevel,
+            permissions,
         });
 
         return {
@@ -102,7 +150,7 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 fullName: user.fullName,
-                role: user.role,
+                role: roleName,
                 phone: user.phone,
                 isActive: user.isActive,
                 avatarUrl: user.avatarUrl,
@@ -124,17 +172,35 @@ export class AuthService {
             // Verify user still exists and is active
             const user = await prisma.user.findUnique({
                 where: { id: decoded.userId },
-                select: { id: true, email: true, role: true, isActive: true },
+                select: {
+                    id: true,
+                    email: true,
+                    isActive: true,
+                    roleId: true,
+                    roleRecord: {
+                        select: { id: true, name: true, level: true },
+                    },
+                },
             });
 
             if (!user || !user.isActive) {
                 throw new UnauthorizedError('Invalid refresh token');
             }
 
+            // Fetch permissions for the role
+            const permissions = user.roleId
+                ? (await prisma.rolePermission.findMany({
+                    where: { roleId: user.roleId },
+                    include: { permission: { select: { name: true } } },
+                })).map((rp) => rp.permission.name)
+                : [];
+
             return this.generateTokens({
                 userId: user.id,
                 email: user.email,
-                role: user.role,
+                roleName: user.roleRecord?.name ?? 'USER',
+                roleLevel: user.roleRecord?.level ?? 0,
+                permissions,
             });
         } catch (error) {
             if (error instanceof jwt.TokenExpiredError) {
@@ -190,12 +256,17 @@ export class AuthService {
                 email: true,
                 phone: true,
                 fullName: true,
-                role: true,
                 isActive: true,
                 avatarUrl: true,
-                managerId: true,
+                reportingTo: true,
                 createdAt: true,
-                manager: {
+                entity: {
+                    select: { id: true, name: true, code: true },
+                },
+                roleRecord: {
+                    select: { id: true, name: true, level: true },
+                },
+                reportingToUser: {
                     select: { id: true, fullName: true, email: true },
                 },
             },

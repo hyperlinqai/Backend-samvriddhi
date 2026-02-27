@@ -27,7 +27,7 @@ export class AttendanceRepository {
             data,
             include: {
                 user: {
-                    select: { id: true, fullName: true, email: true, role: true },
+                    select: { id: true, fullName: true, email: true, roleRecord: { select: { name: true } } },
                 },
             },
         });
@@ -45,7 +45,7 @@ export class AttendanceRepository {
             data,
             include: {
                 user: {
-                    select: { id: true, fullName: true, email: true, role: true },
+                    select: { id: true, fullName: true, email: true, roleRecord: { select: { name: true } } },
                 },
             },
         });
@@ -59,7 +59,7 @@ export class AttendanceRepository {
             where: { id },
             include: {
                 user: {
-                    select: { id: true, fullName: true, email: true, role: true },
+                    select: { id: true, fullName: true, email: true, roleRecord: { select: { name: true } } },
                 },
                 visits: true,
             },
@@ -104,7 +104,7 @@ export class AttendanceRepository {
                 where,
                 include: {
                     user: {
-                        select: { id: true, fullName: true, email: true, role: true },
+                        select: { id: true, fullName: true, email: true, roleRecord: { select: { name: true } } },
                     },
                 },
                 orderBy: { [params.sortBy]: params.sortOrder },

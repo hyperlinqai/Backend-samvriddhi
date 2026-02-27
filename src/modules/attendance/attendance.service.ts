@@ -117,12 +117,17 @@ export class AttendanceService {
     async list(
         query: GetAttendanceQuery,
         requestingUserId: string,
-        requestingUserRole: string
+        visibleUserIds: string[] | null
     ): Promise<PaginatedResponse<Attendance>> {
-        // Non-admin users can only see their own attendance
+        // If visibleUserIds is null (Super Admin), allow any userId filter
+        // Otherwise restrict to downline
         let userId = query.userId;
-        if (!['SUPER_ADMIN', 'SM_ADMIN'].includes(requestingUserRole)) {
-            userId = requestingUserId;
+        if (visibleUserIds !== null) {
+            if (userId && !visibleUserIds.includes(userId)) {
+                userId = requestingUserId; // fallback to self
+            } else if (!userId) {
+                // No specific user requested — show all visible users
+            }
         }
 
         const { data, total } = await attendanceRepository.findMany({

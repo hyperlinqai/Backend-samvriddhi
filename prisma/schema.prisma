@@ -12,13 +12,6 @@ datasource db {
 
 // ─── Enums ────────────────────────────────────────────────
 
-enum Role {
-  SUPER_ADMIN
-  SM_ADMIN
-  RM
-  ACCOUNTS
-}
-
 enum AttendanceStatus {
   CHECKED_IN
   CHECKED_OUT
@@ -57,20 +50,72 @@ enum DiscrepancyType {
 
 // ─── Models ───────────────────────────────────────────────
 
+model Entity {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Relations
+  users User[]
+  roles RoleRecord[]
+
+  @@map("entities")
+}
+
+model RoleRecord {
+  id       String  @id @default(uuid())
+  entityId String?
+  entity   Entity? @relation(fields: [entityId], references: [id])
+  name     String
+  level    Int
+
+  // Relations
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@index([entityId])
+  @@map("roles")
+}
+
+model Permission {
+  id   String @id @default(uuid())
+  name String @unique
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  role         RoleRecord @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  phone         String   @unique
+  id            String     @id @default(uuid())
+  entityId      String?
+  entity        Entity?    @relation(fields: [entityId], references: [id])
+  roleId        String?
+  roleRecord    RoleRecord? @relation(fields: [roleId], references: [id])
+  email         String     @unique
+  phone         String     @unique
   passwordHash  String
   fullName      String
-  role          Role     @default(RM)
-  isActive      Boolean  @default(true)
+  isActive      Boolean    @default(true)
   avatarUrl     String?
-  managerId     String?
-  manager       User?    @relation("UserManager", fields: [managerId], references: [id])
-  subordinates  User[]   @relation("UserManager")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  reportingTo   String?
+  reportingToUser User?    @relation("UserReporting", fields: [reportingTo], references: [id])
+  subordinates  User[]     @relation("UserReporting")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   // Relations
   attendances       Attendance[]
@@ -84,8 +129,9 @@ model User {
   auditLogs         AuditLog[]
   assignedRoutes    RouteAssignment[]
 
-  @@index([role])
-  @@index([managerId])
+  @@index([entityId])
+  @@index([roleId])
+  @@index([reportingTo])
   @@map("users")
 }
 

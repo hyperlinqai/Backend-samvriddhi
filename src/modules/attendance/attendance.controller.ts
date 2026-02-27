@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { attendanceService } from './attendance.service';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/response';
+import { getVisibleUserIds } from '../../shared/utils/downline.util';
 
 export class AttendanceController {
     /**
@@ -40,10 +41,11 @@ export class AttendanceController {
      * GET /attendance
      */
     list = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+        const visibleIds = await getVisibleUserIds(req.user!.userId, req.user!.roleName);
         const result = await attendanceService.list(
             req.query as never,
             req.user!.userId,
-            req.user!.role
+            visibleIds
         );
         sendPaginated(res, result, 'Attendance records fetched');
     });

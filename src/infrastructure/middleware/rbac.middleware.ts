@@ -1,31 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
-import { Role } from '@prisma/client';
 import { ForbiddenError, UnauthorizedError } from '../../shared/errors/AppError';
 
 /**
- * Role hierarchy: higher index = more privileges.
- * SUPER_ADMIN > SM_ADMIN > RM > ACCOUNTS
- */
-const ROLE_HIERARCHY: Record<Role, number> = {
-    ACCOUNTS: 1,
-    RM: 2,
-    SM_ADMIN: 3,
-    SUPER_ADMIN: 4,
-};
-
-/**
- * RBAC Middleware — restricts access to specific roles.
+ * RBAC Middleware — restricts access to specific role names.
  *
  * Usage:
- *   router.get('/admin', authenticate, authorize('SUPER_ADMIN', 'SM_ADMIN'), handler);
+ *   router.get('/admin', authenticate, authorize('SUPER_ADMIN', 'NATIONAL_HEAD'), handler);
  */
-export const authorize = (...allowedRoles: Role[]) => {
+export const authorize = (...allowedRoles: string[]) => {
     return (req: Request, _res: Response, next: NextFunction): void => {
         if (!req.user) {
             return next(new UnauthorizedError('Authentication required'));
         }
 
-        const userRole = req.user.role;
+        const userRole = req.user.roleName;
 
         if (!allowedRoles.includes(userRole)) {
             return next(
@@ -40,24 +28,58 @@ export const authorize = (...allowedRoles: Role[]) => {
 };
 
 /**
- * Minimum role middleware — allows access to the given role and above.
+ * Minimum role level middleware — allows access to the given level and above.
  *
  * Usage:
- *   router.get('/reports', authenticate, minRole('SM_ADMIN'), handler);
+ *   router.get('/reports', authenticate, minRoleLevel(30), handler);
  */
-export const minRole = (minimumRole: Role) => {
+export const minRoleLevel = (minimumLevel: number) => {
     return (req: Request, _res: Response, next: NextFunction): void => {
         if (!req.user) {
             return next(new UnauthorizedError('Authentication required'));
         }
 
-        const userLevel = ROLE_HIERARCHY[req.user.role] ?? 0;
-        const requiredLevel = ROLE_HIERARCHY[minimumRole] ?? 0;
+        const userLevel = req.user.roleLevel ?? 0;
 
-        if (userLevel < requiredLevel) {
+        if (userLevel < minimumLevel) {
             return next(
                 new ForbiddenError(
-                    `Minimum role '${minimumRole}' required. Your role: '${req.user.role}'`
+                    `Minimum role level ${minimumLevel} required. Your level: ${userLevel}`
+                )
+            );
+        }
+
+        next();
+    };
+};
+
+/**
+ * Permission-based middleware — checks if the user's JWT contains
+ * the required permission string.
+ *
+ * Usage:
+ *   router.get('/users', authenticate, hasPermission('users.read'), handler);
+ */
+export const hasPermission = (...requiredPermissions: string[]) => {
+    return (req: Request, _res: Response, next: NextFunction): void => {
+        if (!req.user) {
+            return next(new UnauthorizedError('Authentication required'));
+        }
+
+        // Super Admin bypasses all permission checks
+        if (req.user.roleName === 'SUPER_ADMIN') {
+            return next();
+        }
+
+        const userPermissions = req.user.permissions ?? [];
+        const hasAll = requiredPermissions.every((p) =>
+            userPermissions.includes(p)
+        );
+
+        if (!hasAll) {
+            return next(
+                new ForbiddenError(
+                    `Missing required permissions: ${requiredPermissions.join(', ')}`
                 )
             );
         }
@@ -68,7 +90,7 @@ export const minRole = (minimumRole: Role) => {
 
 /**
  * Owner-or-admin middleware — allows access if the user is the resource owner
- * OR has one of the admin roles.
+ * OR has a role level >= 30 (State Head and above).
  *
  * Usage:
  *   router.get('/profile/:userId', authenticate, ownerOrAdmin('userId'), handler);
@@ -81,7 +103,7 @@ export const ownerOrAdmin = (paramKey: string = 'userId') => {
 
         const resourceOwnerId = req.params[paramKey];
         const isOwner = req.user.userId === resourceOwnerId;
-        const isAdmin = ['SUPER_ADMIN', 'SM_ADMIN'].includes(req.user.role);
+        const isAdmin = (req.user.roleLevel ?? 0) >= 30; // State Head and above
 
         if (!isOwner && !isAdmin) {
             return next(

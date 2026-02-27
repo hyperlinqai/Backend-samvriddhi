@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { attendanceController } from './attendance.controller';
 import { authenticate } from '../../infrastructure/middleware/auth.middleware';
-import { authorize } from '../../infrastructure/middleware/rbac.middleware';
+import { hasPermission } from '../../infrastructure/middleware/rbac.middleware';
 import { validate } from '../../infrastructure/middleware/validate.middleware';
 import {
     checkInSchema,
@@ -37,7 +37,7 @@ attendanceRouter.get('/summary', attendanceController.getSummary);
 // ─── Auto-close (admin only) ──────────────────────────
 attendanceRouter.post(
     '/auto-close',
-    authorize('SUPER_ADMIN', 'SM_ADMIN'),
+    hasPermission('attendance.read'),
     attendanceController.autoClose
 );
 

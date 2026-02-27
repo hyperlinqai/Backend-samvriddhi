@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { authenticate } from '../../infrastructure/middleware/auth.middleware';
-import { authorize } from '../../infrastructure/middleware/rbac.middleware';
+import { hasPermission } from '../../infrastructure/middleware/rbac.middleware';
 import { validate } from '../../infrastructure/middleware/validate.middleware';
 import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/response';
 import { prisma } from '../../infrastructure/database/prisma';
 import { NotFoundError } from '../../shared/errors/AppError';
 import { z } from 'zod';
+import { getVisibleUserIds } from '../../shared/utils/downline.util';
 
 const leadRouter = Router();
 leadRouter.use(authenticate);
@@ -76,8 +77,13 @@ leadRouter.get(
         const limitNum = Number(limit) || 20;
 
         const where: Record<string, unknown> = {};
-        if (!['SUPER_ADMIN', 'SM_ADMIN'].includes(req.user!.role)) {
-            where.assignedToId = req.user!.userId;
+        const visibleIds = await getVisibleUserIds(req.user!.userId, req.user!.roleName);
+        if (visibleIds) {
+            if (assignedToId && visibleIds.includes(assignedToId)) {
+                where.assignedToId = assignedToId;
+            } else {
+                where.assignedToId = { in: visibleIds };
+            }
         } else if (assignedToId) {
             where.assignedToId = assignedToId;
         }
@@ -146,7 +152,7 @@ leadRouter.patch(
 // Delete lead (admin only)
 leadRouter.delete(
     '/:id',
-    authorize('SUPER_ADMIN', 'SM_ADMIN'),
+    hasPermission('leads.write'),
     asyncHandler(async (req, res) => {
         await prisma.lead.delete({ where: { id: req.params.id as string } });
         sendSuccess(res, null, 'Lead deleted successfully');

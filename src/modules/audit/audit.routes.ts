@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { authenticate } from '../../infrastructure/middleware/auth.middleware';
-import { authorize } from '../../infrastructure/middleware/rbac.middleware';
+import { hasPermission } from '../../infrastructure/middleware/rbac.middleware';
 import { validate } from '../../infrastructure/middleware/validate.middleware';
 import { sendSuccess, sendPaginated } from '../../shared/utils/response';
 import { prisma } from '../../infrastructure/database/prisma';
@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 const auditRouter = Router();
 auditRouter.use(authenticate);
-auditRouter.use(authorize('SUPER_ADMIN', 'SM_ADMIN'));
+auditRouter.use(hasPermission('audit.read'));
 
 // ─── Validation ──────────────────────────────────────────
 
@@ -53,7 +53,7 @@ auditRouter.get(
             prisma.auditLog.findMany({
                 where,
                 include: {
-                    user: { select: { id: true, fullName: true, email: true, role: true } },
+                    user: { select: { id: true, fullName: true, email: true, roleRecord: { select: { name: true } } } },
                 },
                 skip: (pageNum - 1) * limitNum,
                 take: limitNum,
@@ -80,7 +80,7 @@ auditRouter.get(
                 entityId: req.params.entityId as string,
             },
             include: {
-                user: { select: { id: true, fullName: true, role: true } },
+                user: { select: { id: true, fullName: true, roleRecord: { select: { name: true } } } },
             },
             orderBy: { timestamp: 'desc' },
         });

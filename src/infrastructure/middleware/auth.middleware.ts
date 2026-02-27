@@ -43,7 +43,9 @@ export const authenticate = (
         req.user = {
             userId: decoded.userId,
             email: decoded.email,
-            role: decoded.role,
+            roleName: decoded.roleName,
+            roleLevel: decoded.roleLevel,
+            permissions: decoded.permissions ?? [],
         };
 
         next();
@@ -84,7 +86,9 @@ export const optionalAuth = (
         req.user = {
             userId: decoded.userId,
             email: decoded.email,
-            role: decoded.role,
+            roleName: decoded.roleName,
+            roleLevel: decoded.roleLevel,
+            permissions: decoded.permissions ?? [],
         };
 
         next();

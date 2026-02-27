@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { authenticate } from '../../infrastructure/middleware/auth.middleware';
-import { authorize } from '../../infrastructure/middleware/rbac.middleware';
+import { hasPermission } from '../../infrastructure/middleware/rbac.middleware';
 import { validate } from '../../infrastructure/middleware/validate.middleware';
 import { sendSuccess, sendCreated, sendPaginated } from '../../shared/utils/response';
 import { prisma } from '../../infrastructure/database/prisma';
 import { NotFoundError, ForbiddenError } from '../../shared/errors/AppError';
 import { haversineDistance } from '../../shared/utils/geo';
 import { z } from 'zod';
+import { getVisibleUserIds } from '../../shared/utils/downline.util';
 
 const expenseRouter = Router();
 expenseRouter.use(authenticate);
@@ -81,8 +82,13 @@ expenseRouter.get(
         const limitNum = Number(limit) || 20;
 
         const where: Record<string, unknown> = {};
-        if (!['SUPER_ADMIN', 'SM_ADMIN', 'ACCOUNTS'].includes(req.user!.role)) {
-            where.userId = req.user!.userId;
+        const visibleIds = await getVisibleUserIds(req.user!.userId, req.user!.roleName);
+        if (visibleIds) {
+            if (userId && visibleIds.includes(userId)) {
+                where.userId = userId;
+            } else {
+                where.userId = { in: visibleIds };
+            }
         } else if (userId) {
             where.userId = userId;
         }
@@ -119,7 +125,7 @@ expenseRouter.get(
 // Approve/Reject expense (admin/accounts only)
 expenseRouter.patch(
     '/:id/status',
-    authorize('SUPER_ADMIN', 'SM_ADMIN', 'ACCOUNTS'),
+    hasPermission('expenses.approve'),
     validate({ body: updateExpenseStatusSchema }),
     asyncHandler(async (req, res) => {
         const expense = await prisma.expense.findUnique({ where: { id: req.params.id as string } });

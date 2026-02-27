@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/utils/asyncHandler';
 import { authenticate } from '../../infrastructure/middleware/auth.middleware';
-import { authorize } from '../../infrastructure/middleware/rbac.middleware';
+import { hasPermission } from '../../infrastructure/middleware/rbac.middleware';
 import { validate } from '../../infrastructure/middleware/validate.middleware';
 import { sendSuccess, sendCreated, sendNoContent } from '../../shared/utils/response';
 import { prisma } from '../../infrastructure/database/prisma';
@@ -46,7 +46,7 @@ const assignRouteSchema = z.object({
 
 routeManagementRouter.post(
     '/',
-    authorize('SUPER_ADMIN', 'SM_ADMIN'),
+    hasPermission('routes.manage'),
     validate({ body: createRouteSchema }),
     asyncHandler(async (req, res) => {
         const route = await prisma.route.create({ data: req.body });
@@ -75,7 +75,7 @@ routeManagementRouter.get(
                 csps: true,
                 assignments: {
                     where: { isActive: true },
-                    include: { user: { select: { id: true, fullName: true, role: true } } },
+                    include: { user: { select: { id: true, fullName: true, roleRecord: { select: { name: true } } } } },
                 },
             },
         });
@@ -86,7 +86,7 @@ routeManagementRouter.get(
 
 routeManagementRouter.delete(
     '/:id',
-    authorize('SUPER_ADMIN'),
+    hasPermission('routes.manage'),
     asyncHandler(async (req, res) => {
         await prisma.route.update({ where: { id: req.params.id as string }, data: { isActive: false } });
         sendNoContent(res);
@@ -97,7 +97,7 @@ routeManagementRouter.delete(
 
 routeManagementRouter.post(
     '/csps',
-    authorize('SUPER_ADMIN', 'SM_ADMIN'),
+    hasPermission('routes.manage'),
     validate({ body: createCSPSchema }),
     asyncHandler(async (req, res) => {
         const csp = await prisma.cSP.create({
@@ -124,7 +124,7 @@ routeManagementRouter.get(
 
 routeManagementRouter.post(
     '/assignments',
-    authorize('SUPER_ADMIN', 'SM_ADMIN'),
+    hasPermission('routes.manage'),
     validate({ body: assignRouteSchema }),
     asyncHandler(async (req, res) => {
         const assignment = await prisma.routeAssignment.create({

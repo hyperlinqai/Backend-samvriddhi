@@ -1,10 +1,45 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
     console.log('🌱 Starting database seed...\n');
+
+    // ─── Create Default Entity ───────────────────────────────
+    const entity = await prisma.entity.upsert({
+        where: { code: 'SAMVRIDDHI' },
+        update: {},
+        create: {
+            name: 'Samvriddhi',
+            code: 'SAMVRIDDHI',
+            status: true,
+        },
+    });
+    console.log(`✅ Entity created: ${entity.name}`);
+
+    // ─── Create Roles ────────────────────────────────────────
+    const rolesData = [
+        { name: 'SUPER_ADMIN', level: 4 },
+        { name: 'SM_ADMIN', level: 3 },
+        { name: 'RM', level: 2 },
+        { name: 'ACCOUNTS', level: 1 },
+    ];
+
+    const roleMap: Record<string, string> = {};
+
+    for (const r of rolesData) {
+        let role = await prisma.roleRecord.findFirst({
+            where: { name: r.name, entityId: null },
+        });
+        if (!role) {
+            role = await prisma.roleRecord.create({
+                data: { name: r.name, level: r.level, entityId: null },
+            });
+        }
+        roleMap[r.name] = role.id;
+        console.log(`✅ Role ready: ${r.name} (level ${r.level})`);
+    }
 
     // ─── Create Users ──────────────────────────────────────
     const passwordHash = await bcrypt.hash('Admin@123456', 12);
@@ -17,7 +52,8 @@ async function main() {
             phone: '9000000001',
             passwordHash,
             fullName: 'Super Admin',
-            role: Role.SUPER_ADMIN,
+            entityId: entity.id,
+            roleId: roleMap['SUPER_ADMIN'],
             isActive: true,
         },
     });
@@ -31,8 +67,9 @@ async function main() {
             phone: '9000000002',
             passwordHash,
             fullName: 'State Manager',
-            role: Role.SM_ADMIN,
-            managerId: superAdmin.id,
+            entityId: entity.id,
+            roleId: roleMap['SM_ADMIN'],
+            reportingTo: superAdmin.id,
             isActive: true,
         },
     });
@@ -46,8 +83,9 @@ async function main() {
             phone: '9000000003',
             passwordHash,
             fullName: 'Rajesh Kumar (RM)',
-            role: Role.RM,
-            managerId: smAdmin.id,
+            entityId: entity.id,
+            roleId: roleMap['RM'],
+            reportingTo: smAdmin.id,
             isActive: true,
         },
     });
@@ -61,8 +99,9 @@ async function main() {
             phone: '9000000004',
             passwordHash,
             fullName: 'Priya Sharma (RM)',
-            role: Role.RM,
-            managerId: smAdmin.id,
+            entityId: entity.id,
+            roleId: roleMap['RM'],
+            reportingTo: smAdmin.id,
             isActive: true,
         },
     });
@@ -76,8 +115,9 @@ async function main() {
             phone: '9000000005',
             passwordHash,
             fullName: 'Accounts Team',
-            role: Role.ACCOUNTS,
-            managerId: superAdmin.id,
+            entityId: entity.id,
+            roleId: roleMap['ACCOUNTS'],
+            reportingTo: superAdmin.id,
             isActive: true,
         },
     });

@@ -11,8 +11,9 @@ export const registerSchema = z.object({
             'Password must contain uppercase, lowercase, number, and special character'
         ),
     fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-    role: z.enum(['SUPER_ADMIN', 'SM_ADMIN', 'RM', 'ACCOUNTS']).optional(),
-    managerId: z.string().uuid().optional(),
+    entityId: z.string().uuid().optional(),
+    roleId: z.string().uuid().optional(),
+    reportingTo: z.string().uuid().optional(),
 });
 
 export const loginSchema = z.object({

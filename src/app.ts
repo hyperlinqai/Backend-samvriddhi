@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+// import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { requestId } from './infrastructure/middleware/requestId.middleware';
 import { errorHandler, notFoundHandler } from './infrastructure/middleware/error.middleware';
@@ -22,6 +22,7 @@ app.use(
 );
 
 // ─── Rate Limiting ───────────────────────────────────────
+/*
 const limiter = rateLimit({
     windowMs: config.RATE_LIMIT_WINDOW_MS,
     max: config.RATE_LIMIT_MAX_REQUESTS,
@@ -34,6 +35,7 @@ const limiter = rateLimit({
     },
 });
 app.use(limiter);
+*/
 
 // ─── Request Parsing ─────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -62,6 +64,10 @@ app.get('/health', (_req, res) => {
         environment: config.NODE_ENV,
         version: process.env.npm_package_version || '1.0.0',
     });
+});
+
+app.get('/ping', (_req, res) => {
+    res.send('pong');
 });
 
 // ─── API Routes ──────────────────────────────────────────
