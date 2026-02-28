@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -44,6 +45,11 @@ app.use(compression());
 
 // ─── Request ID ──────────────────────────────────────────
 app.use(requestId);
+
+// ─── Favicon ─────────────────────────────────────────────
+app.get('/favicon.ico', (_req, res) => {
+    res.sendFile(path.join(process.cwd(), 'favicon-16x16.png'));
+});
 
 // ─── Root Route ──────────────────────────────────────────
 app.get('/', (_req, res) => {

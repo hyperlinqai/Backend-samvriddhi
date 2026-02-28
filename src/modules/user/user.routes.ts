@@ -104,7 +104,11 @@ userRouter.get(
 
         if (roleName) where.roleRecord = { name: roleName };
         if (entityId) where.entityId = entityId;
-        if (isActive !== undefined) where.isActive = isActive === 'true';
+        if (isActive !== undefined) {
+            where.isActive = isActive === 'true';
+        } else {
+            where.isActive = true; // Default to showing only active users
+        }
         if (search) {
             where.OR = [
                 { fullName: { contains: search, mode: 'insensitive' } },
