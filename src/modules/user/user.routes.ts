@@ -189,22 +189,22 @@ userRouter.delete(
     '/:userId/hard',
     hasPermission('users.delete'),
     asyncHandler(async (req, res) => {
-        await prisma.user.delete({
-            where: { id: req.params.userId as string },
-        });
-        sendNoContent(res);
-    })
-);
+        const userId = req.params.userId as string;
 
-// Deactivate user (requires users.delete)
-userRouter.delete(
-    '/:userId',
-    hasPermission('users.delete'),
-    asyncHandler(async (req, res) => {
-        await prisma.user.update({
-            where: { id: req.params.userId as string },
-            data: { isActive: false },
-        });
+        await prisma.$transaction([
+            // Delete dependent records that have ON DELETE RESTRICT
+            prisma.lead.deleteMany({ where: { OR: [{ assignedToId: userId }, { createdById: userId }] } }),
+            prisma.expense.deleteMany({ where: { OR: [{ userId }, { approvedById: userId }] } }),
+            prisma.routeAssignment.deleteMany({ where: { userId } }),
+            prisma.discrepancy.deleteMany({ where: { OR: [{ raisedById: userId }, { resolvedById: userId }] } }),
+            prisma.auditLog.deleteMany({ where: { userId } }),
+
+            // Delete the user
+            prisma.user.delete({
+                where: { id: userId },
+            })
+        ]);
+
         sendNoContent(res);
     })
 );

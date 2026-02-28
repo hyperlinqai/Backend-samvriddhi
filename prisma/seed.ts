@@ -20,10 +20,11 @@ async function main() {
 
     // ─── Create Roles ────────────────────────────────────────
     const rolesData = [
-        { name: 'SUPER_ADMIN', level: 4 },
-        { name: 'SM_ADMIN', level: 3 },
-        { name: 'RM', level: 2 },
-        { name: 'ACCOUNTS', level: 1 },
+        { name: 'SUPER_ADMIN', level: 100 },
+        { name: 'SM_ADMIN', level: 50 },
+        { name: 'RM', level: 40 },
+        { name: 'ACCOUNTS', level: 30 },
+        { name: 'FIELD_USER', level: 10 },
     ];
 
     const roleMap: Record<string, string> = {};

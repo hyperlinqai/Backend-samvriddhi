@@ -118,6 +118,7 @@ roleRouter.get(
                 orderBy: { level: 'desc' },
                 include: {
                     entity: { select: { name: true } },
+                    rolePermissions: true,
                     _count: { select: { users: true, rolePermissions: true } },
                 },
             }),
